@@ -9,14 +9,27 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+##Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+In this blog’s very first post we’re going to try and create a very simple dose-response model, called the Banister model, using R. Before starting I highly recommend checking out these posts (here, here, here) by Mladen Jovanovic, who has shared several creative ideas on how to use Banister modelling for both performance -and injury prediction. I also urge you to check out this excellent resource provided by David Clarke and Philip Skiba, which I’ll be referencing a lot throughout this post. Lastly, the data we’ll be using can be found in this excellent article Thierry Busso, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+##The Banister impulse~response model
 
-```{r cars}
-summary(cars)
+In simple terms, the Banister IR model quantitively relates performance ability at a specific time to the cumulative effects of prior training loads (Taha & Thomas, 2003). Though the equation looks rather complicated at first, it’s actually quite easy to grasp once put in layman’s terms. First and foremost, the model posits that training will have both a positive (fitness) and a negative training effect (fatigue). Performance at a given time is thus simply the sum of base level performance plus the difference between the accumulated fitness and the accumulated fatigue. Other than being conceptually easy to understand, the model is also able to capture several phases related to the training process, including overreaching, plateau, taper, and detraining (Clarke & Skiba, 2011). By using data from a single athlete, the model is easily fitted to that athlete, and can thereby be used for planning of training.   
+
+##Fitting the model 
+
+In contrast to the black box structure of neural networks, which I’ll write about in a separate post, the Banister model has five adjustable parameters. These include the initial performance level, two time constants that describe the decay of the fitness and fatigue components, and two gain parameters that relate to how the training load determines the amplitude of fitness and fatigue. As showed by Clarke and Skiba (2011), these parameters can be easily fitted to data using nonlinear regression, which involves iteratively changing the parameters until the error between the model and the data is minimized. In the example below, we’re going to do this using R’s optim function.  
+
+###The data 
+
+To give a quick summary, the data consists of training and testing data of 6 health male subjects over 15 weeks. The performance variable in this instance is the average power output over a 5-minutt maximal cycling effort, while the training itself is recorded in arbitrary units.    
+
+To start off, let’s review the data.       
+
+
+```{r}
+head(bussodata)
 ```
 
 ## Including Plots
