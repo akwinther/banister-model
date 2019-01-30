@@ -11,11 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ##Introduction
 
-In this blog’s very first post we’re going to try and create a very simple dose-response model, called the Banister model, using R. Before starting I highly recommend checking out these posts (here, here, here) by Mladen Jovanovic, who has shared several creative ideas on how to use Banister modelling for both performance -and injury prediction. I also urge you to check out this excellent resource provided by David Clarke and Philip Skiba, which I’ll be referencing a lot throughout this post. Lastly, the data we’ll be using can be found in this excellent article Thierry Busso, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
+In this blog’s very first post we’re going to try and create a very simple dose-response model, called the Banister model, using R. Before starting I highly recommend checking out these posts (here, here, here) by Mladen Jovanovic, who has shared several creative ideas on how to use Banister modelling for both performance and injury prediction. I also urge you to check out this excellent resource by David Clarke and Philip Skiba, which I’ll be referencing a lot throughout this post. Lastly, the data we’ll be using can be found in this excellent article Thierry Busso, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
 
 ##The Banister impulse~response model
 
-In simple terms, the Banister IR model quantitively relates performance ability at a specific time to the cumulative effects of prior training loads (Taha & Thomas, 2003). Though the equation looks rather complicated at first, it’s actually quite easy to grasp once put in layman’s terms. First and foremost, the model posits that training will have both a positive (fitness) and a negative training effect (fatigue). Performance at a given time is thus simply the sum of base level performance plus the difference between the accumulated fitness and the accumulated fatigue. Other than being conceptually easy to understand, the model is also able to capture several phases related to the training process, including overreaching, plateau, taper, and detraining (Clarke & Skiba, 2011). By using data from a single athlete, the model is easily fitted to that athlete, and can thereby be used for planning of training.   
+In simple terms, the Banister IR model quantitatively relates performance ability at a specific time to the cumulative effects of prior training loads (Taha & Thomas, 2003). Though the equation looks rather complicated at first, it’s actually quite easy to grasp once put in layman’s terms. First and foremost, the model posits that training will have both a positive (fitness) and a negative training effect (fatigue). Performance at a given time is thus simply the sum of base level performance plus the difference between the accumulated fitness and the accumulated fatigue. Other than being conceptually easy to understand, the model is also able to capture several phases related to the training process, including overreaching, plateau, taper, and detraining (Clarke & Skiba, 2011). By using data from a single athlete, the model is easily fitted to that athlete, and can thereby be used for planning of training.   
 
 ##Fitting the model 
 
@@ -23,21 +23,19 @@ In contrast to the black box structure of neural networks, which I’ll write ab
 
 ###The data 
 
-To give a quick summary, the data consists of training and testing data of 6 health male subjects over 15 weeks. The performance variable in this instance is the average power output over a 5-minutt maximal cycling effort, while the training itself is recorded in arbitrary units.    
+To give a quick summary, the data consists of training and testing data of 6 health male subjects over 15 weeks. The performance variable in this instance is the average power output over a 5-minute maximal cycling effort, while the training itself is recorded in arbitrary units.    
 
-To start off, let’s review the data.       
-
-
+To start off, here's a snapshot of the data we'll be working with:        
+```{r echo=FALSE, message=FALSE}
+library(readxl)
+library(ggplot2)
+library(zoo)
+library(caret)
+```
+```{r echo=FALSE}
+banister.data <- read_excel("C:/Users/Andreas/SkyDrive/Dokumenter/ModellingInR/Busso2017su1.xlsx")
+```
 ```{r}
-head(bussodata)
+str(banister.data)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
