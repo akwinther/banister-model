@@ -11,21 +11,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ##Introduction
 
-In this blog’s very first post we’re going to try and create a very simple dose-response model, called the Banister model, using R. Before starting I highly recommend checking out these posts (here, here, here) by Mladen Jovanovic, who has shared several creative ideas on how to use Banister modelling for both performance and injury prediction. I also urge you to check out this excellent resource by David Clarke and Philip Skiba, which I’ll be referencing a lot throughout this post. Lastly, the data we’ll be using can be found in this excellent article Thierry Busso, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
+In this blog’s very first post we’re going to try and create a very simple dose-response model, called the Banister model, using the R programming language. Before starting I highly recommend checking out these posts (here, here, here) by Mladen Jovanovic, who has shared several creative ideas on how to use Banister modelling for both performance and injury prediction. I also urge you to check out this excellent resource by David Clarke and Philip Skiba, which I’ll be referencing a lot throughout this post. Lastly, the data we’ll be using can be found in this excellent article by Thierry Busso, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
 
 ##The Banister impulse~response model
 
-In simple terms, the Banister IR model quantitatively relates performance ability at a specific time to the cumulative effects of prior training loads (Taha & Thomas, 2003). Though the equation looks rather complicated at first, it’s actually quite easy to grasp once put in layman’s terms. First and foremost, the model posits that training will have both a positive (fitness) and a negative training effect (fatigue). Performance at a given time is thus simply the sum of base level performance plus the difference between the accumulated fitness and the accumulated fatigue. Other than being conceptually easy to understand, the model is also able to capture several phases related to the training process, including overreaching, plateau, taper, and detraining (Clarke & Skiba, 2011). By using data from a single athlete, the model is easily fitted to that athlete, and can thereby be used for planning of training.   
+In simple terms, the Banister IR model quantitatively relates performance ability at a specific time to the cumulative effects of prior training loads (Taha & Thomas, 2003). Though the equation looks rather intimidating at first, it’s actually quite easy to grasp once put in layman’s terms. First and foremost, the model posits that training will have both a positive (fitness) and a negative training effect (fatigue). Performance at a given time is thus simply the sum of base level performance plus the difference between the accumulated fitness and the accumulated fatigue. Other than being conceptually easy to understand, the model is also able to capture several phases related to the training process, including overreaching, plateau, taper, and detraining (Clarke & Skiba, 2011). By using data from a single athlete, the model is easily fitted to that athlete, and can thereby be used for planning of training.   
 
 ##Fitting the model 
 
-In contrast to the black box structure of neural networks, which I’ll write about in a separate post, the Banister model has five adjustable parameters. These include the initial performance level, two time constants that describe the decay of the fitness and fatigue components, and two gain parameters that relate to how the training load determines the amplitude of fitness and fatigue. As showed by Clarke and Skiba (2011), these parameters can be easily fitted to data using nonlinear regression, which involves iteratively changing the parameters until the error between the model and the data is minimized. In the example below, we’re going to do this using R’s optim function.  
+In contrast to the black box structure of neural networks, which I’ll cover in a separate post, the Banister model has five adjustable parameters. These include the initial performance level, two time constants that describe the decay of the fitness and fatigue components, and two gain parameters that relate to how the training load determines the amplitude of fitness and fatigue. As showed by Clarke and Skiba (2011), these parameters can be easily fitted to data using nonlinear regression, which involves iteratively changing the parameters until the error between the model and the data is minimized. In the example below, we’re going to do this using R’s optim function.  
 
-###The data 
+To give a quick summary, the data consists of training and testing data of 6 healthy male subjects over 15 weeks. The performance variable in this instance is the average power output over a 5-minute maximal cycling effort, while the training itself is recorded in arbitrary units.
 
-To give a quick summary, the data consists of training and testing data of 6 health male subjects over 15 weeks. The performance variable in this instance is the average power output over a 5-minute maximal cycling effort, while the training itself is recorded in arbitrary units.    
+###Preparing the data
 
-To start off, here's a snapshot of the data we'll be working with:        
+To start off, let's review the data:        
 ```{r echo=FALSE, message=FALSE}
 library(readxl)
 library(ggplot2)
@@ -39,3 +39,41 @@ banister.data <- read_excel("C:/Users/Andreas/SkyDrive/Dokumenter/ModellingInR/B
 str(banister.data)
 ```
 
+As can be seen in the example above, the data consists of a data frame with 13 columns and 109 observations. One column lists the number of days, while each consecutive column shows each participants performance and training dose. To make this data a little easier to work with we're going to start by coercing it into six individual lists, one for each participant. This can easily be done by first subsetting the columns training dose and performance into two separate vectors. Next, we're going to use a for loop to create six individual lists, each containing a data frame with a column for day, training dose, and performance. This can be done as follows:
+
+```{r}
+training <- banister.data[seq(2, 13, by = 2)] #Subsets all the 'training dose'  columns
+performance <- banister.data[seq(3, 13, by = 2)] #Subsets all the 'performance' columns
+banister.list <- vector("list", 6) #Creates an empty list vector
+
+for (i in 1:6) {
+  banister.list[i] <- list(cbind(banister.data[1], training[i], performance[i])) 
+}
+names(banister.list) <- paste("Athlete", 1:6, sep ="") #Sets the name of each data frame in the list to 'Athlete1', 2, etc
+banister.list <- lapply(banister.list, function(x) { #Sets the name of each column within the data frames
+  colnames(x) <- c("Day", "Training.Load", "Performance")
+  return(x)
+})
+
+str(banister.list)
+```
+Now that we've neatly organised our data, it's time to create our banister function.
+
+###Creating a Banister function
+If we look at the R Documentation for the optim function (which can be done by typing ?optim in the console), we can see that the first argument of our banister function has to contain a vector with the parameters we want to optimize for. In our case this will be the 5 adjustible parameters associated with the banister model: the initial performance level (p0), the two time constants (k1, k2), and the two gain parameters (tau1, tau2). Rememeber, we're trying to predict performance here and therefore want to minimize the error between our model and the actual performance. 
+```{r}
+banister.function <- function (v, Training.Load, Performance) { #The function takes three inputs...
+  p0 <- v[1]; k1 <- v[2]; k2 <- v[3]; tau1 <- v[4]; tau2 <- v[5]
+  Fitness <- 0
+  Fatigue <- 0
+  for (i in 1:length(Training.Load)) {
+    Fitness[i+1] <- Fitness[i] * exp(-1/tau1) + Training.Load[i+1]
+    Fatigue[i+1] <- Fatigue[i] * exp(-1/tau2) + Training.Load[i+1]
+    Predicted.Performance <- p0 + k1*Fitness - k2*Fatigue
+  }
+  errors <- Performance[!is.na(Performance)] - Predicted.Performance[which(!is.na(Performance))]  
+  SSE <- sum(errors^2)
+  return(SSE) #...and returns the sum of squared errors
+}
+```
+Now that we have created 
