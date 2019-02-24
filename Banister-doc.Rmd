@@ -1,8 +1,10 @@
 ---
-title: "Creating a Banister model using R"
+title: "Fitting individualized Banister models in R"
 author: "Andreas K. Winther"
 date: "1/14/2019"
 output: html_document
+bibliography: references.bib
+csl: apa.csl
 ---
 
 ```{r setup, include=FALSE}
@@ -11,17 +13,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ##Introduction
 
-In this blog’s very first post we’re going to try and create a very simple dose-response model, called the Banister model, using the R programming language. Before starting I highly recommend checking out these posts (here, here, here) by Mladen Jovanovic, who has shared several creative ideas on how to use Banister modelling for both performance and injury prediction. I also urge you to check out this excellent resource by David Clarke and Philip Skiba, which I’ll be referencing a lot throughout this post. Lastly, the data we’ll be using can be found in this excellent article by Thierry Busso, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
+In this blog's very first post we’re going to try and model the performance of several trained subjects using the Banister model. Before starting I highly recommend checking out [this](https://www.ncbi.nlm.nih.gov/pubmed/23728131) fantastic resource by @clarke2013rationale, which I’ll be referencing a lot throughout this post. I also urge you to check out these posts ( [here](https://complementarytraining.net/banister-impulseresponse-model-in-r/), and [here](https://complementarytraining.net/predicting-injuries-using-bannister-model/)) by Mladen Jovanovic, where he shares some very creative ideas on how to use Banister modelling for both performance and injury prediction. Lastly, the data we’ll be using can be found in [this](https://www.nature.com/articles/srep40422) excellent article by Thierry @busso2017indirect, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
 
 ##The Banister impulse~response model
 
-In simple terms, the Banister IR model quantitatively relates performance ability at a specific time to the cumulative effects of prior training loads (Taha & Thomas, 2003). Though the equation looks rather intimidating at first, it’s actually quite easy to grasp once put in layman’s terms. First and foremost, the model posits that training will have both a positive (fitness) and a negative training effect (fatigue). Performance at a given time is thus simply the sum of base level performance plus the difference between the accumulated fitness and the accumulated fatigue. Other than being conceptually easy to understand, the model is also able to capture several phases related to the training process, including overreaching, plateau, taper, and detraining (Clarke & Skiba, 2011). By using data from a single athlete, the model is easily fitted to that athlete, and can thereby be used for planning of training.   
+$p(t) = p(0) + k_{1}\sum\limits_{s=0}^{t-1}e^{-(t-s)/t_1}w(s) + k_{2}\sum\limits_{s=0}^{t-1}e^{-(t-s)/t_2}w(s)$
+
+In simple terms, the Banister IR model quantitatively relates performance ability at a specific time to the cumulative effects of prior training loads [@taha2003systems]. Though the above equation looks rather intimidating at first, it’s actually quite easy to grasp once put in layman’s terms. First and foremost, the model posits that training will have both a positive (fitness) and a negative training effect (fatigue). Performance at a given time is thus simply the sum of base level performance plus the difference between the accumulated fitness and the accumulated fatigue. Other than being conceptually easy to understand, the model is also able to capture several phases related to the training process, including overreaching, plateau, taper, and detraining [@clarke2013rationale]. Using athlete-specific data the model is easily fitted to individual athletes, making it a useful tool in the planning of training.   
 
 ##Fitting the model 
 
-In contrast to the black box structure of neural networks, which I’ll cover in a separate post, the Banister model has five adjustable parameters. These include the initial performance level, two time constants that describe the decay of the fitness and fatigue components, and two gain parameters that relate to how the training load determines the amplitude of fitness and fatigue. As showed by Clarke and Skiba (2011), these parameters can be easily fitted to data using nonlinear regression, which involves iteratively changing the parameters until the error between the model and the data is minimized. In the example below, we’re going to do this using R’s optim function.  
-
-To give a quick summary, the data consists of training and testing data of 6 healthy male subjects over 15 weeks. The performance variable in this instance is the average power output over a 5-minute maximal cycling effort, while the training itself is recorded in arbitrary units.
+In contrast to the black box structure of neural networks, which I’ll cover in a separate post, the Banister model has five adjustable parameters. These include the initial performance level $p(0)$, two time constants that describe the decay of the fitness and fatigue components $k_1$, $k_2$, and two gain parameters $\tau_1$, $\tau_2$ that relate to how the training load determines the amplitude of fitness and fatigue. As showed by Clarke and Skiba (2011), these parameters can be easily fitted to data using nonlinear regression, which involves iteratively changing the parameters until the error between the model and the data is minimized. In the example below, we’re going to do this using R’s *optim* function.  
 
 ###Preparing the data
 
@@ -38,8 +40,7 @@ banister.data <- read_excel("C:/Users/Andreas/SkyDrive/Dokumenter/ModellingInR/B
 str(banister.data)
 ```
 
-As can be seen in the example above, the data consists of a data frame with 13 columns and 109 observations. One column lists the number of days, while each consecutive column shows each participants performance and training dose. To make this data a little easier to work with we're going to start by coercing it into six individual lists, one for each participant. This can easily be done by first subsetting the columns training dose and performance into two separate vectors. Next, we're going to use a for loop to create six individual lists, each containing a data frame with a column for day, training dose, and performance. This can be done as follows:
-
+As can be seen above, the data consists of training and testing data of six healthy male subjects over 15 weeks. The performance variable in this instance is the average power output over a 5-minute maximal cycling effort, while the training itself has been recorded in arbitrary units. Furthermore, the data has been coerced into a data frame with 13 columns and 109 observations. One column lists the number of days, while each consecutive column shows each participants performance and training dose. To make this data a little easier to work with we're going to start by coercing it into six individual lists, one for each subject. This can easily be done by first subsetting the columns training dose and performance into two separate vectors. Next, we're going to use a *for loop* to create six individual lists, each containing a data frame with a column for day, training dose, and performance. This can be done as follows:
 ```{r}
 training <- banister.data[seq(2, 13, by = 2)] #Subsets all the 'training dose'  columns
 performance <- banister.data[seq(3, 13, by = 2)] #Subsets all the 'performance' columns
@@ -48,7 +49,7 @@ banister.list <- vector("list", 6) #Creates an empty list vector
 for (i in 1:6) {
   banister.list[i] <- list(cbind(banister.data[1], training[i], performance[i])) 
 }
-names(banister.list) <- paste("Athlete", 1:6, sep ="") #Sets the name of each data frame in the list to 'Athlete1', 2, etc
+names(banister.list) <- paste("Subject", 1:6, sep ="") #Sets the name of each data frame in the list to 'Athlete1', 2, etc
 banister.list <- lapply(banister.list, function(x) { #Sets the name of each column within the data frames
   colnames(x) <- c("Day", "Training.Load", "Performance")
   return(x)
@@ -56,10 +57,11 @@ banister.list <- lapply(banister.list, function(x) { #Sets the name of each colu
 
 str(banister.list)
 ```
-Now that we've neatly organised our data, it's time to create our banister function.
 
-###Creating a Banister function
-If we look at the R Documentation for the optim function (which can be done by typing ?optim in the console), we can see that the first argument of our banister function needs to contain a vector with the parameters we want to optimize for. In our case this will be the five adjustible parameters associated with the banister model: the initial performance level (p0), the two time constants (k1, k2), and the two gain parameters (tau1, tau2). Rememeber, we're trying to predict performance and therefore want to minimize the error between our model and the actual performance. To do this we'll use the sum of squared errors as the metric to be minimised. 
+Now that we've neatly organised our data, it's time to write our banister function.
+
+###Writing the Banister function
+If we look at the R Documentation for the *optim* function (which can be done by typing ?optim in the console), we can see that the first argument of our banister function needs to contain a vector with the parameters we want to optimize for. In our case this will be the five adjustible parameters associated with the banister model: the initial performance level $p(0)$, the two time constants ($k_1$, $k_2$), and the two gain parameters ($\tau_1$, $\tau_2$). Rememeber, we're trying to predict performance and therefore want to minimize the error between our model and the actual performance. To do this we'll use the sum of squared errors as the metric to be minimised. 
 ```{r}
 banister.function <- function (v, Training.Load, Performance) { #The function takes three inputs...
   p0 <- v[1]; k1 <- v[2]; k2 <- v[3]; tau1 <- v[4]; tau2 <- v[5]
@@ -76,8 +78,8 @@ banister.function <- function (v, Training.Load, Performance) { #The function ta
 }
 ```
 
-###Optimizing athlete-specific parameters
-Now that we have created our main function we can use lapply to apply the function over the data for each subject. This in turn will create six optimised sets of banister parameters, one for each subject. However, before running the function, we have to set our initial parameter values. In this case, I've used p0 = 256, k1 = 0.10, k2 = 0.10, tau1 = 15, and tau2 = 11. 
+###Optimizing parameters for each subject
+Now that we have created our main function we can use *lapply* to apply the function over the data for each subject. This in turn will create six optimised sets of banister parameters, one for each subject. However, before running the function, we have to set our initial parameter values. In this case, I've used $p(0) = 256$, $k_1 = 0.10$, $k_2 = 0.10$, $\tau_1 = 15$, and $\tau_2 = 11$. 
 ```{r}
 banister.optimised <- vector("list", 6)
 
@@ -89,7 +91,7 @@ names(banister.optimised) <- paste("Subject", 1:6, sep = "")
 
 str(banister.optimised[1])
 ```
-The output above shows a list of components generated by the optim function for Subject1. Two of these components are of special interest to us: par and value. The par component shows the optimized parameter values for the given athlete, while the value component shows the sum of squared errors. Let's create a new list with these components alongside Day, Training.Load, and Performance.
+The output above shows a list of components generated by the *optim* function for Subject1. Two of these components are of special interest to us: *par* and *value*. The *par* component shows the optimized parameter values for the given athlete, while the *value* component shows the sum of squared errors. Let's create a new list with these components alongside Day, Training.Load, and Performance.
 ```{r}
 banister.parameters <- vector("list", 6)
 for (i in 1:6) {
@@ -102,7 +104,7 @@ str(banister.parameters[1])
 ```
 
 ###Creating models
-Now that we have opimized each athletes parmeters, and organised the metrics into neatly organised lists, we can use the magic that is lapply to create six athlete specific models. 
+Now that we have opimized each athletes parmeters, and organised the metrics into neatly organised lists, we can use the magic that is *lapply* to create six subject-specific models. 
 ```{r}
 banister.models <- lapply(banister.parameters, function(x) {
   p0 <- x$Parameters[1]; k1 <- x$Parameters[2]; k2 <- x$Parameters[3]; tau1 <- x$Parameters[4]; tau2 <- x$Parameters[5]
@@ -128,7 +130,7 @@ lapply(banister.models, function(x) {
 ```
 
 ###Visualization
-Now that we have fitted our models we can start thinking about ways to visualize them. A great package to do this is ggplot, however ggplot only takes data frames as inputs therefore we first have to transform our lists. We're also going to create a new variable called weeks so that we can visualize the weekly progression in performance, rather than day by day. To do this we're going to use the dplyr package: 
+Now that we have fitted our models we can start thinking about ways to visualize them. A great package to do this is *ggplot*, however *ggplot* only takes data frames as inputs therefore we first have to transform our lists. We're also going to create a new variable called *'Week'* so that we can visualize the weekly progression in performance, rather than day by day. To do this we're going to use the *dplyr* package: 
 ```{r warning = FALSE}
 banister.models <- lapply(banister.models, function(x) {
   x$Week <- x$Day/7
@@ -154,3 +156,7 @@ banister.plots <- ggplot(banister.df, aes(x = Week, y = Predicted.Performance)) 
 banister.plots
 ```
 
+#Final notes
+And there you have it. As showed, the banister model nicely accomodates the non-linear nature of the data for each subject. However, 
+
+#References
