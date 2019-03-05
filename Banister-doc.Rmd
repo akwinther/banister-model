@@ -1,7 +1,13 @@
 ---
-title: "Fitting individualized impulse~response models in R"
+title: "Fitting impulse~response models in R"
 author: "Andreas K. Winther"
-date: "02/03/2019"
+date: "2019-03-04"
+categories: ["R", "Modelling", "Prediction"]
+math: "true"
+image:
+  caption: ""
+  focal_point: ""
+summary: In this blog's very first post/tutorial I'll show how to model performance using the Banister impulse~response (IR) model.
 output: html_document
 bibliography: references.bib
 csl: apa.csl
@@ -13,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ##Introduction
 
-In this blog's very first post/tutorial we’re going to try and model the performance of several subjects using the Banister impulse~response (IR) model. Before starting I highly recommend checking out [this](https://www.ncbi.nlm.nih.gov/pubmed/23728131) fantastic resource by @clarke2013rationale, which I’ll be referencing a lot throughout this post. I also urge you to check out these posts ( [here](https://complementarytraining.net/banister-impulseresponse-model-in-r/), and [here](https://complementarytraining.net/predicting-injuries-using-bannister-model/)) by Mladen Jovanovic, where he shares some very creative ideas on how to use Banister modelling for both performance and injury prediction. Lastly, the data we’ll be using can be found in [this](https://www.nature.com/articles/srep40422) excellent article by Thierry @busso2017indirect, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
+In this blog's very first post/tutorial I'll show how to model the performance of several subjects using the Banister impulse~response (IR) model. Before starting I highly recommend checking out [this](https://www.ncbi.nlm.nih.gov/pubmed/23728131) fantastic resource by @clarke2013rationale, which I’ll be referencing a lot throughout this post. I also urge you to check out these posts ( [here](https://complementarytraining.net/banister-impulseresponse-model-in-r/), and [here](https://complementarytraining.net/predicting-injuries-using-bannister-model/)) by Mladen Jovanovic, where he shares some very creative ideas on how to use Banister modelling for both performance and injury prediction. Lastly, the data we’ll be using can be found in [this](https://www.nature.com/articles/srep40422) excellent article by Thierry @busso2017indirect, who has done a lot of research into the modelling of the dose-response relationship between training and performance. A massive thanks to him and his contribution to open science!
 
 ##The Banister impulse~response model
 
@@ -59,7 +65,7 @@ str(banister.list)
 ```
 
 ###Writing the IR function
-Now that we have our data neatly structured, we can start thinking about ways to write our IR function. If we look at the R Documentation for the *optim* function (which can be done by typing ?optim in the console), we can see that the first argument of our IR function needs to contain a vector with the parameters we want to optimize for. In our case this will be the five adjustible parameters associated with the IR model: the initial performance level $p(0)$, the two time constants ($k_1$, $k_2$), and the two gain parameters ($\tau_1$, $\tau_2$). Also, although the the summation equation of the IR model was referenced previously, we're going to follow the example of @clarke2013rationale and use a set of recursion equations instead. These can be seen in the code chunk below. Lastly, to fit a model for each subject we need to minimize the error between predicted performance and actual performance. To do this we'll use the sum of squared errors as the metric to be minimised. 
+Now that the data is neatly structured, we can start thinking about ways to write the IR function. If we look at the R Documentation for the *optim* function (which can be done by typing ?optim in the console), we can see that the first argument of our IR function needs to contain a vector with the parameters we want to optimize for. In our case this will be the five adjustible parameters associated with the IR model: the initial performance level $p(0)$, the two time constants ($k_1$, $k_2$), and the two gain parameters ($\tau_1$, $\tau_2$). Also, although I referenced the summation equation of the IR model previously, we're going to follow the example of @clarke2013rationale and use a set of recursion equations instead. These can be seen in the code chunk below. Lastly, to fit a model for each subject we need to minimize the error between predicted performance and actual performance. To do this we'll use the sum of squared errors as the metric to be minimised. 
 ```{r}
 banister.function <- function (v, Training.Load, Performance) { #The function takes three inputs...
   p0 <- v[1]; k1 <- v[2]; k2 <- v[3]; tau1 <- v[4]; tau2 <- v[5]
@@ -128,7 +134,7 @@ lapply(banister.models, function(x) {
 ```
 
 ###Visualization
-Now that we have six nicely fitted models we can start thinking about ways to visualize them. A great package to do this is *ggplot*, however *ggplot* only takes dataframes as inputs. We therefore first have to transform our lists into dataframes. We're also going to create a new variable called *'Week'* to visualize the weekly progression in performance rather than day by day. To do this we're going to use *dplyr*: 
+Now that we have six nicely fitted models we can start thinking about ways to visualize them. A great package to do this is *ggplot*, however *ggplot* only take dataframes as inputs. We therefore first have to transform our lists into dataframes. We're also going to create a new variable called *'Week'* to visualize the weekly progression in performance rather than day by day. To do this we're going to use *dplyr*: 
 ```{r warning = FALSE}
 banister.models <- lapply(banister.models, function(x) {
   x$Week <- x$Day/7
